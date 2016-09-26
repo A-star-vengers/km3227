@@ -8,18 +8,12 @@ grid_width = 21
 longest_word_len = len(max(word_list, key=len))
 assert min(grid_width, grid_height) >= longest_word_len, "both board dimensions should exceed the longest word length"
 
-word_list.sort(key=len, reverse=True)
 
 grid = dict(letters = [[0 for x in range(grid_width)] for y in range(grid_height)],
             filled  = [[False for x in range(grid_width)] for y in range(grid_height)])
 
-word_to_place = word_list[0]
-# first word is place horizontally, wlog
 
-row = int(grid_height/2)
-# roughly in the middle of the grid
-left_margin = int((grid_width - longest_word_len)/2)-1
-
+word_list.sort(key=len, reverse=True)
 
 def check_word_index_conformability(word_to_place, start_ind, end_ind):
     assert 2 == len(start_ind) and 2 == len(end_ind), "indices should be 2 element lists"
@@ -84,6 +78,11 @@ def print_grid(grid):
             else:
                 print('.', end="")
         print('\n')
+
+
+row = int(grid_height/2)
+# roughly in the middle of the grid
+left_margin = int((grid_width - longest_word_len)/2)-1
 
 
 word_to_place = word_list[0]
