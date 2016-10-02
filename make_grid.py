@@ -92,7 +92,6 @@ end_ind = [row, left_margin + longest_word_len]
 grid = place_word(word_to_place, start_ind, end_ind, grid)
 grid = place_word('test', [6, 13], [10, 13], grid)
 
-
 print_grid(grid)
 
 # 1. Create a grid of whatever size and a list of words.
