@@ -24,7 +24,11 @@ def login_required(f):
 def home(): 
     g.db = connect_db()
     cur = g.db.execute('select * from posts')
-    posts = [dict(title=row[0], description=row[1]) for row in cur.fetchall()]
+    posts = []
+    for row in cur.fetchall(): 
+        posts.append(dict(title=row[0], description=row[1]))
+
+#    posts = [dict(title=row[0], description=row[1]) for row in cur.fetchall()]
     g.db.close()
     return render_template("index.html", posts=posts)
 
@@ -40,7 +44,6 @@ def login():
             error = 'Invalid Credentials. Please try again.'
         else:
 	    session['logged_in'] = True
-	    flash('You were just logged in!')
             return redirect(url_for('home'))
     return render_template('login.html', error=error)
 
@@ -48,7 +51,6 @@ def login():
 @login_required
 def logout(): 
     session.pop('logged_in', None)
-    flash('You were just logged out!')
     return redirect(url_for('welcome'))
    
 def connect_db():
