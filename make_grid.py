@@ -1,19 +1,5 @@
 import math
-
-# Word list from: http://bryanhelmig.com/python-crossword-puzzle-generator/
-word_list = ['saffron', 'pumpernickel', 'leaven', 'coda', 'paladin', 'syncopation', 'albatross', 'harp', 'piston', 'caramel', 'coral', 'dawn', 'pitch', 'fjord', 'lip', 'lime', 'mist', 'plague', 'yarn', 'snicker']
-grid_height = 15
-grid_width = 21
-
-longest_word_len = len(max(word_list, key=len))
-assert min(grid_width, grid_height) >= longest_word_len, "both board dimensions should exceed the longest word length"
-
-
-grid = dict(letters = [[0 for x in range(grid_width)] for y in range(grid_height)],
-            filled  = [[False for x in range(grid_width)] for y in range(grid_height)])
-
-
-word_list.sort(key=len, reverse=True)
+import random
 
 def check_word_index_conformability(word_to_place, start_ind, end_ind):
     assert 2 == len(start_ind) and 2 == len(end_ind), "indices should be 2 element lists"
@@ -46,53 +32,131 @@ def enumerate_indices_between(start_ind, end_ind):
     return indices_between
 
 def place_word(word_to_place, start_ind, end_ind, grid):
+    letters = grid["letters"]
+    is_filled = grid["is_filled"]
+    indices_between = enumerate_indices_between(start_ind, end_ind)
+
+    for counter, ind in enumerate(indices_between):
+        idx0 = ind[0]
+        idx1 = ind[1]
+        letters[idx0][idx1] = word_to_place[counter]
+        is_filled[idx0][idx1] = True
+
+    out = dict(letters=letters, is_filled=is_filled)
+    return out
+
+
+def check_word_is_placeable(word_to_place, start_ind, end_ind, grid):
     check_word_index_conformability(word_to_place, start_ind, end_ind)
     letters = grid["letters"]
-    filled = grid["filled"]
+    is_filled = grid["is_filled"]
     indices_between = enumerate_indices_between(start_ind, end_ind)
+    is_placeable_index = [True] * len(indices_between)
+
     for counter, ind in enumerate(indices_between):
-        idx1 = ind[0]
-        idx2 = ind[1]
-        if not filled[idx1][idx2]:
-            letters[idx1][idx2] = word_to_place[counter]
-            filled[idx1][idx2] = True
-        else:
-            assert letters[idx1][idx2] == word_to_place[counter], "should not be overriding an already placed letter"
-    out = dict(letters=letters, filled=filled)
-    return out
+        idx0 = ind[0]
+        idx1 = ind[1]
+        is_placeable_index[counter] = (not is_filled[idx0][idx1]) or (letters[idx0][idx1] == word_to_place[counter])
+
+    return all(is_placeable_index)
+
+def place_word_safe(word_to_place, start_ind, end_ind, grid):
+    assert check_word_is_placeable(word_to_place, start_ind, end_ind, grid), "Should not be overriding letter"
+    return place_word(word_to_place, start_ind, end_ind, grid)
 
 def print_grid(grid):
     letters = grid["letters"]
-    filled  = grid["filled"]
+    is_filled = grid["is_filled"]
 
-    d1 = len(letters)
-    d2 = len(letters[0])
+    d0 = len(letters)
+    d1 = len(letters[0])
 
-    assert len(filled) == d1, "first dimension mismatch"
-    assert len(filled[0]) == d2, "second dimension mismatch"
+    assert len(is_filled) == d0, "first dimension mismatch"
+    assert len(is_filled[0]) == d1, "second dimension mismatch"
 
-    for dim1 in range(d1):
-        for dim2 in range(d2):
-            if filled[dim1][dim2]:
-                print(letters[dim1][dim2], end="")
+    for dim0 in range(d0):
+        for dim1 in range(d1):
+            if is_filled[dim0][dim1]:
+                print(letters[dim0][dim1], end="")
             else:
                 print('.', end="")
         print('\n')
 
 
-row = int(grid_height/2)
-# roughly in the middle of the grid
-left_margin = int((grid_width - longest_word_len)/2)-1
+def get_word_endpoint(word, startpoint, orientation):
+    word_len = len(word)
+    assert ("vertical" == orientation) or ("horizontal" == orientation), "unknown orientation"
+    if "vertical" == orientation:
+        endpoint = [startpoint[0] + word_len, startpoint[1]]
+    else:
+        endpoint = [startpoint[0], startpoint[1] + word_len]
+    return endpoint
 
 
-word_to_place = word_list[0]
-start_ind = [row, left_margin]
-end_ind = [row, left_margin + longest_word_len]
+def get_random_unfilled_point(grid):
+    is_filled = grid["is_filled"]
 
-grid = place_word(word_to_place, start_ind, end_ind, grid)
-grid = place_word('test', [6, 13], [10, 13], grid)
+    d1 = len(is_filled)
+    d2 = len(is_filled[0])
 
-print_grid(grid)
+    return [random.randrange(0, d1), random.randrange(0, d2)]
+
+def find_open_location_for_word(grid, word):
+    is_filled = grid["is_filled"]
+    d0 = len(is_filled)
+    d1 = len(is_filled[0])
+
+    is_open = False
+
+    while not is_open:
+        random_unfilled_start_point = get_random_unfilled_point(grid)
+        random_orientation = "vertical" if bool(random.getrandbits(1)) else "horizontal"
+        random_unfilled_end_point = get_word_endpoint(word, random_unfilled_start_point, random_orientation)
+        is_open = (random_unfilled_end_point[0] <= d0) and (random_unfilled_end_point[1] <= d1)
+
+    return dict(point=random_unfilled_start_point, orientation=random_orientation)
+
+if __name__ == "__main__":
+    random.seed(0)
+
+    # Word list from: http://bryanhelmig.com/python-crossword-puzzle-generator/
+    word_list = ['saffron', 'pumpernickel', 'leaven', 'coda', 'paladin', 'syncopation', 'albatross', 'harp', 'piston',
+                'caramel', 'coral', 'dawn', 'pitch', 'fjord', 'lip', 'lime', 'mist', 'plague', 'yarn', 'snicker']
+
+    word_set = set(word_list)
+    longest_word = max(word_set, key=len)
+
+    grid_height = 15
+    grid_width = 21
+
+    longest_word_len = len(longest_word)
+    assert min(grid_width, grid_height) >= longest_word_len, "both board dimensions should exceed the longest word length"
+
+    grid = dict(letters = [[0 for x in range(grid_width)] for y in range(grid_height)],
+                is_filled  = [[False for x in range(grid_width)] for y in range(grid_height)])
+
+    # roughly in the middle of the grid
+    row = int(grid_height/2)
+    left_margin = int((grid_width - longest_word_len)/2)-1
+
+    word_to_place = longest_word
+    start_ind = [row, left_margin]
+    end_ind = [row, left_margin + longest_word_len]
+    grid = place_word_safe(word_to_place, start_ind, end_ind, grid)
+    placed_word = word_to_place
+
+    word_set.remove(placed_word)
+    grid = place_word_safe('test', [6, 13], get_word_endpoint("test", [6, 13], "vertical"), grid)
+
+    longest_word = max(word_set, key=len)
+    open_location_for_word = find_open_location_for_word(grid, longest_word)
+    point = open_location_for_word["point"]
+    orientation = open_location_for_word["orientation"]
+
+    print("Suggested location for next longest word '{0}' is ({1}, {2}) [{3}]".format(longest_word, point[0], point[1], orientation))
+
+    print_grid(grid)
+
 
 # 1. Create a grid of whatever size and a list of words.
 # 2. Shuffle the word list, and then sort the words by longest to shortest.
