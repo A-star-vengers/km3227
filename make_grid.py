@@ -1,5 +1,5 @@
-import math
 import random
+
 
 def check_word_index_conformability(word_to_place, start_ind, end_ind):
     assert 2 == len(start_ind) and 2 == len(end_ind), "indices should be 2 element lists"
@@ -16,20 +16,21 @@ def check_word_index_conformability(word_to_place, start_ind, end_ind):
     word_size = vert_dim + horz_dim
     assert len(word_to_place) == word_size, "location to place should match dimensions of word to be placed"
 
-def enumerate_indices_between(start_ind, end_ind):
-    vert_dim = end_ind[1] - start_ind[1]
-    horz_dim = end_ind[0] - start_ind[0]
+
+def enumerate_indices_between(startpoint, endpoint):
+    vert_dim = endpoint[1] - startpoint[1]
+    horz_dim = endpoint[0] - startpoint[0]
 
     word_size = vert_dim + horz_dim
-
     indices_between = [None] * word_size
 
     for idx in range(word_size):
         w = idx / word_size
-        r = round(start_ind[0] * (1 - w) + end_ind[0] * w) # round may be a bit fragile, better to do this with int sequences
-        c = round(start_ind[1] * (1 - w) + end_ind[1] * w)
+        r = round(startpoint[0] * (1 - w) + endpoint[0] * w) # round may be a bit fragile, better to do this with int sequences
+        c = round(startpoint[1] * (1 - w) + endpoint[1] * w)
         indices_between[idx] = [r, c]
     return indices_between
+
 
 def place_word(word_to_place, start_ind, end_ind, grid):
     letters = grid["letters"]
@@ -60,9 +61,12 @@ def check_word_is_placeable(word_to_place, start_ind, end_ind, grid):
 
     return all(is_placeable_index)
 
+
 def place_word_safe(word_to_place, start_ind, end_ind, grid):
+    print_grid(grid)
     assert check_word_is_placeable(word_to_place, start_ind, end_ind, grid), "Should not be overriding letter"
     return place_word(word_to_place, start_ind, end_ind, grid)
+
 
 def print_grid(grid):
     letters = grid["letters"]
@@ -101,6 +105,7 @@ def get_random_unfilled_point(grid):
 
     return [random.randrange(0, d1), random.randrange(0, d2)]
 
+
 def find_open_location_for_word(grid, word):
     is_filled = grid["is_filled"]
     d0 = len(is_filled)
@@ -116,26 +121,80 @@ def find_open_location_for_word(grid, word):
 
     return dict(point=random_unfilled_start_point, orientation=random_orientation)
 
+
+def is_overlap_with_grid(word, grid, startpoint, endpoint):
+    indices_bewteen = enumerate_indices_between(startpoint, endpoint)
+    is_overlap = [0] * len(indices_bewteen)
+    letters = grid["letters"]
+    is_filled = grid["is_filled"]
+
+    for counter, point in enumerate(indices_bewteen):
+        d0 = point[0]
+        d1 = point[1]
+        if is_filled[d0][d1] and (word[counter] == letters[d0][d1]):
+            is_overlap[counter] = 1
+    return is_overlap
+
+
+def total_overlap_with_grid(word, grid, startpoint, endpoint):
+    return sum(is_overlap_with_grid(word, grid, startpoint, endpoint))
+
+
+# stackoverflow.com/questions/16945518/python-argmin-argmax-finding-the-index-of-the-value-which-is-the-min-or-max
+def argmax(iterable):
+    return max(enumerate(iterable), key=lambda x: x[1])[0]
+
+
+def try_to_place_word(word, grid):
+    max_tries = 100
+    potential_starts = [None] * max_tries
+    overlaps = [0] * max_tries
+
+    for idx in range(max_tries):
+        potential_starts[idx] = find_open_location_for_word(grid, word)
+        startpoint = potential_starts[idx]["point"]
+        orientation = potential_starts[idx]["orientation"]
+        endpoint = get_word_endpoint(word, startpoint, orientation)
+        overlaps[idx] = total_overlap_with_grid(word, grid, startpoint, endpoint)
+
+    am = argmax(overlaps)
+    tot = overlaps[am]
+    sp = potential_starts[am]["point"]
+    ep = get_word_endpoint(word, sp, potential_starts[am]["orientation"])
+    print("Suggested location for word '{0}' is between ({1}, {2}) and ({3}, {4}) with overlap {5}".format(word,
+                                                                                                           sp[0], sp[1],
+                                                                                                           ep[0], ep[1],
+                                                                                                           tot))
+    was_placed = tot > 0
+    if was_placed:
+        grid = place_word_safe(word, sp, ep, grid)
+    return dict(grid=grid, was_placed=was_placed)
+
+
 if __name__ == "__main__":
     random.seed(0)
 
-    # Word list from: http://bryanhelmig.com/python-crossword-puzzle-generator/
-    word_list = ['saffron', 'pumpernickel', 'leaven', 'coda', 'paladin', 'syncopation', 'albatross', 'harp', 'piston',
-                'caramel', 'coral', 'dawn', 'pitch', 'fjord', 'lip', 'lime', 'mist', 'plague', 'yarn', 'snicker']
-
-    word_set = set(word_list)
-    longest_word = max(word_set, key=len)
-
-    grid_height = 15
+    iters = 5 # number of times to pass through
     grid_width = 21
+    grid_height = 15
+
+    # Word list from: http://bryanhelmig.com/python-crossword-puzzle-generator/
+    # word_list = ['saffron', 'pumpernickel', 'leaven', 'coda', 'paladin', 'syncopation', 'albatross', 'harp', 'piston',
+    #             'caramel', 'coral', 'dawn', 'pitch', 'fjord', 'lip', 'lime', 'mist', 'plague', 'yarn', 'snicker']
+
+    word_list = ['saffron', 'pumpernickel', 'leaven', 'coda', 'syncopation', 'albatross', 'harp', 'piston']
+
+
+    remaining_word_set = set(word_list)
+    longest_word = max(remaining_word_set, key=len)
 
     longest_word_len = len(longest_word)
-    assert min(grid_width, grid_height) >= longest_word_len, "both board dimensions should exceed the longest word length"
+    assert min(grid_width, grid_height) >= longest_word_len, "both board dimensions should exceed longest word length"
 
     grid = dict(letters = [[0 for x in range(grid_width)] for y in range(grid_height)],
                 is_filled  = [[False for x in range(grid_width)] for y in range(grid_height)])
 
-    # roughly in the middle of the grid
+    # place the longest word by hand first, roughly in the middle of the grid
     row = int(grid_height/2)
     left_margin = int((grid_width - longest_word_len)/2)-1
 
@@ -145,15 +204,29 @@ if __name__ == "__main__":
     grid = place_word_safe(word_to_place, start_ind, end_ind, grid)
     placed_word = word_to_place
 
-    word_set.remove(placed_word)
-    grid = place_word_safe('test', [6, 13], get_word_endpoint("test", [6, 13], "vertical"), grid)
+    remaining_word_set.remove(placed_word)
 
-    longest_word = max(word_set, key=len)
-    open_location_for_word = find_open_location_for_word(grid, longest_word)
-    point = open_location_for_word["point"]
-    orientation = open_location_for_word["orientation"]
+    # grid = place_word_safe('test', [6, 13], get_word_endpoint("test", [6, 13], "vertical"), grid)
 
-    print("Suggested location for next longest word '{0}' is ({1}, {2}) [{3}]".format(longest_word, point[0], point[1], orientation))
+    remaining_word_set_next = set([])
+
+    for iter in range(iters):
+        num_remaining = len(remaining_word_set)
+
+        while len(remaining_word_set) > 0:
+            word = max(remaining_word_set, key=len)
+            back = try_to_place_word(word, grid)
+            grid = back["grid"]
+            was_placed = back["was_placed"]
+
+            remaining_word_set.remove(word)
+
+            if was_placed:
+                remaining_word_set_next.add(word)
+        num_placed = num_remaining - len(remaining_word_set_next)
+        print("Placed {0} words in iteration {1}".format(num_placed, iter))
+        remaining_word_set = remaining_word_set_next
+        remaining_word_set_next = set([])
 
     print_grid(grid)
 
