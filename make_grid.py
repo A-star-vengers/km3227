@@ -62,10 +62,10 @@ def check_word_is_placeable(word_to_place, start_ind, end_ind, grid):
     return all(is_placeable_index)
 
 
-def place_word_safe(word_to_place, start_ind, end_ind, grid):
+def place_word_safe(word_to_place, startpoint, endpoint, grid):
     print_grid(grid)
-    assert check_word_is_placeable(word_to_place, start_ind, end_ind, grid), "Should not be overriding letter"
-    return place_word(word_to_place, start_ind, end_ind, grid)
+    assert check_word_is_placeable(word_to_place, startpoint, endpoint, grid), "Should not be overriding letter"
+    return place_word(word_to_place, startpoint, endpoint, grid)
 
 
 def print_grid(grid):
@@ -102,8 +102,11 @@ def get_random_unfilled_point(grid):
 
     d1 = len(is_filled)
     d2 = len(is_filled[0])
-
-    return [random.randrange(0, d1), random.randrange(0, d2)]
+    done = False
+    while not done:
+        proposal = [random.randrange(0, d1), random.randrange(0, d2)]
+        done = not is_filled[proposal[0]][proposal[1]]
+    return proposal
 
 
 def find_open_location_for_word(grid, word):
@@ -124,7 +127,9 @@ def find_open_location_for_word(grid, word):
 
 def is_overlap_with_grid(word, grid, startpoint, endpoint):
     indices_bewteen = enumerate_indices_between(startpoint, endpoint)
-    is_overlap = [0] * len(indices_bewteen)
+    word_len = len(word)
+    assert len(indices_bewteen) == word_len, "word does not fit endpoints"
+    is_overlap = [0] * word_len
     letters = grid["letters"]
     is_filled = grid["is_filled"]
 
@@ -161,7 +166,8 @@ def try_to_place_word(word, grid):
     tot = overlaps[am]
     sp = potential_starts[am]["point"]
     ep = get_word_endpoint(word, sp, potential_starts[am]["orientation"])
-    print("Suggested location for word '{0}' is between ({1}, {2}) and ({3}, {4}) with overlap {5}".format(word,
+    if tot > 0:
+        print("Suggested location for word '{0}' is between ({1}, {2}) and ({3}, {4}) with overlap {5}".format(word,
                                                                                                            sp[0], sp[1],
                                                                                                            ep[0], ep[1],
                                                                                                            tot))
@@ -225,8 +231,14 @@ if __name__ == "__main__":
                 remaining_word_set_next.add(word)
         num_placed = num_remaining - len(remaining_word_set_next)
         print("Placed {0} words in iteration {1}".format(num_placed, iter))
+        print("Remaining words")
+        print(remaining_word_set_next)
         remaining_word_set = remaining_word_set_next
         remaining_word_set_next = set([])
+
+
+
+
 
     print_grid(grid)
 
